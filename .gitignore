@@ -1,0 +1,12 @@
+# Archivos generados por Maven e IntelliJ
+/target/
+/out/
+/.idea/
+*.iml
+*.iws
+*.ipr
+
+# Archivos temporales del sistema y del editor
+.DS_Store
+Thumbs.db
+*.log
