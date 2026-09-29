@@ -1,84 +1,63 @@
 # CyberLogAnalyzer
 
-Proyecto académico de 2.º de DAM para analizar registros de acceso y practicar detección de patrones sospechosos en Java. La versión actual funciona por consola con datos ficticios.
+Proyecto académico de 2.º de DAM que genera accesos ficticios en memoria y analiza patrones sospechosos. Funciona por consola y utiliza reglas de detección.
 
-## Funcionalidades actuales
+## Funcionalidades
 
-- Leer eventos desde un archivo CSV.
+- Elegir mediante un menú entre generación aleatoria y tres escenarios preparados.
+- Generar eventos en memoria y analizarlos directamente.
 - Mostrar los eventos y su número total.
-- Contar los accesos fallidos por dirección IP.
-- Generar una alerta cuando una misma IP acumula al menos cinco fallos en un intervalo de cinco minutos.
+- Contar los fallos por dirección IP.
+- Detectar cinco o más fallos de una misma IP en cinco minutos.
 - Mostrar una sola alerta por IP durante cada ejecución.
 
-La detección utiliza reglas, no inteligencia artificial. Una alerta señala un patrón para revisar; no confirma que haya ocurrido un ataque.
+Una alerta señala un patrón para revisar; no confirma que haya ocurrido un ataque.
 
-## Tecnologías
+## Ejecutar
 
-Java 24, Maven, IntelliJ IDEA, colecciones `ArrayList` y `HashMap`, lectura con `File` y `Scanner`, y fechas con `LocalDateTime`.
+1. Abre el proyecto en IntelliJ IDEA y carga su configuración Maven.
+2. Selecciona Java 24 como SDK del proyecto.
+3. Ejecuta `com.pablocc07.cyberlog.Main`.
 
-## Ejecutar en IntelliJ IDEA
+En la opción 1 del menú se generan **1.000 eventos: 200 por minuto durante 5 minutos simulados**. Se generan al instante, sin esperar tiempo real. Los datos solo se conservan durante la ejecución. Puedes ajustar `minutos` e `intentosPorMinuto` en `Main`.
 
-1. Clona este repositorio o descarga el código.
-2. Abre la carpeta del proyecto y carga su configuración Maven (`pom.xml`).
-3. Selecciona Java 24 como SDK del proyecto.
-4. Configura el directorio de trabajo de la ejecución en la raíz del proyecto.
-5. Ejecuta `com.pablocc07.cyberlog.Main`.
+| Opción | Escenario | Resultado esperado |
+| --- | --- | --- |
+| 1 | 1.000 eventos aleatorios | Variable |
+| 2 | Cuatro fallos entre las 10:00 y las 10:03 | 0 alertas |
+| 3 | Cinco fallos a las 10:00, 10:01:15, 10:02:30, 10:03:45 y 10:05 | 1 alerta |
+| 4 | Cinco fallos separados por seis minutos | 0 alertas |
+| 0 | Salir | Sin análisis |
 
-El lector busca `src/main/resources/eventos.csv` mediante una ruta relativa. El programa necesita esa carpeta de datos en el directorio de trabajo; todavía no está preparado para ejecutarse como un JAR independiente.
+Los escenarios preparados usan la fecha fija 29/09/2026 y la IP ficticia `192.0.2.1`. La opción 3 comprueba que se incluye el límite exacto de cinco minutos. Cada ejecución analiza una opción; si introduces una opción inválida, muestra un mensaje y termina.
 
-## Organización del código
+## Organización
 
 | Clase | Responsabilidad |
 | --- | --- |
 | `EventoAcceso` | Guarda la fecha, el usuario, la IP y el resultado de un intento. |
-| `AnalizadorAccesos` | Agrupa `leer()`, `contarFallos()` y `detectarAlertas()`. |
-| `Main` | Llama a los métodos del analizador y muestra los resultados. |
+| `AnalizadorAccesos` | Agrupa `generarEventos()`, `generarEscenario()`, `contarFallos()` y `detectarAlertas()`. |
+| `Main` | Configura la simulación y muestra los resultados. |
 
-Los métodos se agrupan en `AnalizadorAccesos` para facilitar el aprendizaje y la lectura del proyecto.
+El código usa arrays, bucles, `ArrayList`, `HashMap`, `Math.random()`, `Scanner` y `LocalDateTime`.
 
-## Regla de detección
+## Generación y análisis
 
-Cada evento fallido puede iniciar un intervalo de cinco minutos. Se recorre la lista para contar los fallos de esa IP dentro del intervalo, incluyendo el inicio y el final. Si el contador alcanza cinco, se genera una alerta y se recuerda la IP para no repetirla.
+El generador elige entre seis usuarios y diez IP ficticias del rango de documentación `192.0.2.0/24`. Cada intento tiene un 80 % de probabilidad de éxito. Las fechas se distribuyen aleatoriamente dentro de cada minuto simulado. Los resultados varían entre ejecuciones; no se garantiza una cantidad exacta de éxitos ni de alertas.
 
-Los accesos correctos no suman ni reinician el contador. Los eventos pueden estar desordenados; se muestra el primer intervalo que cumple la regla según el recorrido del archivo, que no tiene por qué ser el primero cronológicamente.
+Cada evento fallido puede iniciar un intervalo de cinco minutos. El detector cuenta los fallos de esa IP dentro del intervalo, incluyendo ambos extremos. Los accesos correctos no suman ni reinician el contador. Se muestra el primer intervalo que cumple la regla según el recorrido de la lista, que puede estar desordenada.
 
-## Ejemplo incluido
+## Limitaciones
 
-El CSV contiene 15 eventos: dos accesos correctos y trece fallidos.
-
-| IP | Fallos totales | Resultado |
-| --- | ---: | --- |
-| `198.51.100.23` | 2 | Sin alerta |
-| `192.0.2.42` | 1 | Sin alerta |
-| `203.0.113.50` | 5 | Alerta: fallos entre las 10:00 y las 10:04 |
-| `192.0.2.80` | 5 | Sin alerta: fallos separados por seis minutos |
-
-La salida incluye:
-
-```text
-Total de eventos: 15
-Total de alertas: 1
-ALERTA | IP: 203.0.113.50 | Fallos: 5 | Intervalo: 2026-09-24T10:00 - 2026-09-24T10:05
-```
-
-El orden del resumen por IP puede variar porque se utiliza `HashMap`. Consulta el [README de los datos](src/main/resources/README.md) para conocer el formato y los escenarios.
-
-## Limitaciones actuales
-
-- El lector espera cuatro campos válidos, sin líneas vacías, espacios adicionales ni comas dentro de los campos.
-- Una fecha incorrecta o una fila incompleta puede interrumpir la ejecución. Cualquier resultado distinto de `EXITO` se interpreta como fallo.
-- Si el archivo no existe, se muestra un mensaje y se devuelve una lista vacía.
+- Los parámetros negativos muestran un mensaje y devuelven una lista vacía; un parámetro igual a cero también produce una lista vacía.
 - Solo se informa de una alerta por IP, aunque existan varios intervalos sospechosos.
-- La búsqueda mediante dos bucles tiene un coste cuadrático en el peor caso; conviene revisarla antes de analizar volúmenes grandes.
+- El orden del resumen por IP puede variar porque se utiliza `HashMap`.
+- La detección tiene un coste cuadrático en el peor caso; conviene revisarla antes de analizar volúmenes grandes.
 - Todavía no hay interfaz gráfica, base de datos ni pruebas automatizadas incorporadas al repositorio.
 
 ## Próximos pasos
 
-- [ ] Generar intentos simulados y escribirlos en el CSV, combinando actividad normal con patrones preparados.
-- [ ] Mejorar la validación de las filas y los mensajes de error.
-- [ ] Incorporar pruebas automatizadas de las reglas.
-- [ ] Añadir reglas para accesos correctos tras varios fallos e intentos sobre distintas cuentas.
-- [ ] Guardar eventos y revisiones de alertas con SQLite.
-- [ ] Crear una interfaz con Swing para cargar, filtrar y revisar los registros.
-
-El generador es el siguiente paso acordado y todavía no está implementado.
+- Incorporar pruebas automatizadas de las reglas.
+- Añadir reglas para accesos correctos tras varios fallos e intentos sobre distintas cuentas.
+- Guardar eventos y revisiones de alertas con MariaDB mediante XAMPP y JDBC.
+- Crear una interfaz con Swing para revisar y filtrar los registros.
